@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.vite/
+*.webm
+*.mp4
+*.glb
+.DS_Store
+
+
