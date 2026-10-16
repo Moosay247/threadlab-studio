@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#050505" />
+  <title>Ghost360 Garment Studio</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <section class="viewer-panel">
+      <div id="viewer" class="viewer" aria-label="Interactive 3D garment viewer"></div>
+      <div class="viewer-topbar">
+        <span class="status-dot"></span>
+        <span id="statusText">Ready - upload front and back images</span>
+      </div>
+      <div class="viewer-help">Front showcase: -45�  +45�  smooth flip to back  back showcase: -45�  +45�  seamless loop  8K export</div>
+    </section>
+
+    <aside class="controls-panel">
+      <div class="brand-row">
+        <div>
+          <p class="eyebrow">GHOST GARMENT ENGINE</p>
+          <h1>Ghost360</h1>
+        </div>
+        <span class="version">MVP 0.20</span>
+      </div>
+
+      <p class="intro">Ghost360 now uses an analysis-first workflow and a showcase-first presentation. Upload both views, resolve any missing garment view, then generate the clothing. Instead of exposing weak reconstructed sides through a constant 360� spin, the default motion showcases the front from -45� to +45�, smoothly flips 180� to the back, showcases the back from -45� to +45�, then returns seamlessly to the front. Export is built for 8K 7680x4320 output.</p>
+
+      <div class="control-group">
+        <label for="garmentType">Garment template</label>
+        <select id="garmentType">
+          <option value="tshirt">Oversized T-shirt</option>
+          <option value="crewneck">Crewneck / Long sleeve</option>
+          <option value="hoodie">Hoodie</option>
+          <option value="jacket">Jacket</option>
+          <option value="pants">Straight pants</option>
+          <option value="set" selected>Hoodie + pants set</option>
+        </select>
+      </div>
+
+      <div class="upload-grid">
+        <label class="upload-card" for="frontFile">
+          <span class="upload-kicker">01</span>
+          <strong>Front image</strong>
+          <span id="frontName">PNG/JPG</span>
+          <img id="frontPreview" class="upload-preview" alt="Cleaned front preview" hidden />
+          <input id="frontFile" type="file" accept="image/png,image/jpeg,image/webp" />
+        </label>
+        <label class="upload-card" for="backFile">
+          <span class="upload-kicker">02</span>
+          <strong>Back image</strong>
+          <span id="backName">PNG/JPG</span>
+          <img id="backPreview" class="upload-preview" alt="Cleaned back preview" hidden />
+          <input id="backFile" type="file" accept="image/png,image/jpeg,image/webp" />
+        </label>
+      </div>
+      <p class="micro-copy">For <strong>Hoodie + pants set</strong>, upload flat-lays with the hoodie/top on the left and the pants on the right. Stage 1 only cleans and identifies the pieces. Nothing is generated on the mannequin until you press Continue.</p>
+
+      <section class="generation-gate" id="generationGate" aria-live="polite">
+        <div class="gate-progress"><span id="gateStepFront">1</span><i></i><span id="gateStepBack">2</span><i></i><span id="gateStepGenerate">3</span></div>
+        <strong id="gateTitle">Upload front and back</strong>
+        <p id="gateMessage">Add both images. Ghost360 will clean them first, then ask you to continue.</p>
+        <div class="generation-progress" id="generationProgress" hidden><span id="generationProgressBar"></span></div>
+        <button id="continueGenerate" class="primary wide" type="button" disabled>Continue - Generate 3D Clothing</button>
+      </section>
+
+      <section class="analysis-panel" id="analysisPanel" hidden aria-live="polite">
+        <div class="analysis-head">
+          <div>
+            <p class="eyebrow">SOURCE ANALYSIS</p>
+            <strong id="analysisTitle">Analyzing garment views.</strong>
+          </div>
+          <span id="analysisStatus" class="analysis-status">Pending</span>
+        </div>
+        <div class="analysis-grid">
+          <div class="analysis-card"><span>Front source</span><strong id="frontAlphaStatus">-</strong><small id="frontAlphaNote">Waiting for upload</small></div>
+          <div class="analysis-card"><span>Back source</span><strong id="backAlphaStatus">-</strong><small id="backAlphaNote">Waiting for upload</small></div>
+          <div class="analysis-card"><span>Hoodie</span><strong id="hoodieViewStatus">-</strong><small id="hoodieViewNote">Waiting for both views</small></div>
+          <div class="analysis-card"><span>Pants</span><strong id="pantsViewStatus">-</strong><small id="pantsViewNote">Waiting for both views</small></div>
+        </div>
+        <div class="analysis-resolution" id="missingPantsResolution" hidden>
+          <strong>Pants back is missing</strong>
+          <p>The two detected pants images appear to show the same side. Ghost360 will not pretend one is a back view. Generate a conservative back with matching fabric, waistband, seams and hems, but without front pockets, drawstrings or thigh branding.</p>
+          <button id="generateMissingPantsBack" type="button">Generate missing pants back</button>
+        </div>
+        <div class="analysis-previews" id="piecePreviews" hidden>
+          <figure><figcaption>Hoodie front</figcaption><img id="hoodieFrontPiece" alt="Detected hoodie front" /></figure>
+          <figure><figcaption>Hoodie back</figcaption><img id="hoodieBackPiece" alt="Detected hoodie back" /></figure>
+          <figure><figcaption>Pants front</figcaption><img id="pantsFrontPiece" alt="Detected pants front" /></figure>
+          <figure><figcaption id="pantsBackCaption">Pants back</figcaption><img id="pantsBackPiece" alt="Detected or generated pants back" /></figure>
+        </div>
+      </section>
+
+      <div class="control-group">
+        <label for="cleanupMode">Background cleanup</label>
+        <select id="cleanupMode">
+          <option value="auto">Smart auto (trust existing transparency)</option>
+          <option value="white">Remove near-white</option>
+          <option value="black">Remove near-black</option>
+          <option value="none">Keep original</option>
+        </select>
+      </div>
+
+      <div class="control-group inline-label">
+        <label for="threshold">Cleanup strength <output id="thresholdValue">34</output></label>
+        <input id="threshold" type="range" min="0" max="100" value="34" />
+      </div>
+
+      <div class="two-col">
+        <div class="control-group">
+          <label for="fabricColor">Side fabric</label>
+          <input id="fabricColor" type="color" value="#f2f2f2" />
+        </div>
+        <div class="control-group">
+          <label for="backgroundColor">Scene</label>
+          <input id="backgroundColor" type="color" value="#050505" />
+        </div>
+      </div>
+
+      <div class="control-group inline-label" hidden>
+        <label for="rotationSpeed">Legacy rotation speed <output id="speedValue">18�/s</output></label>
+        <input id="rotationSpeed" type="range" min="0" max="60" value="18" />
+      </div>
+
+      <div class="control-group inline-label">
+        <label for="frameSize">Model size in frame <output id="frameSizeValue">76%</output></label>
+        <input id="frameSize" type="range" min="45" max="84" value="76" />
+      </div>
+
+      <div class="control-group inline-label">
+        <label for="volumeScale">Clothing volume <output id="volumeScaleValue">100%</output></label>
+        <input id="volumeScale" type="range" min="70" max="140" value="100" />
+      </div>
+
+      <div class="control-group inline-label">
+        <label for="detailWrap">Side detail wrap <output id="detailWrapValue">92%</output></label>
+        <input id="detailWrap" type="range" min="0" max="100" value="92" />
+      </div>
+
+      <div class="two-col">
+        <div class="control-group">
+          <label for="mannequinColor">Mannequin</label>
+          <input id="mannequinColor" type="color" value="#a8aaad" />
+        </div>
+        <div class="control-group mannequin-toggle">
+          <label>Mannequin</label>
+          <label class="checkbox-control"><input id="mannequinVisible" type="checkbox" checked /> Show exposed body</label>
+        </div>
+      </div>
+
+      <div class="switch-row">
+        <label><input id="flipFront" type="checkbox" /> Flip front horizontally</label>
+        <label><input id="flipBack" type="checkbox" checked /> Flip back horizontally</label>
+      </div>
+
+      <div class="actions">
+        <button id="toggleSpin" class="primary" type="button">Pause showcase</button>
+        <button id="resetView" type="button">Reset view</button>
+      </div>
+
+      <div class="export-box">
+        <div class="analysis-card" style="margin-bottom:12px">
+          <span>Export quality</span>
+          <strong>8K Ultra - 7680 x 4320</strong>
+          <small>30 fps  high-bitrate WebM  fixed level showcase camera</small>
+        </div>
+        <div class="control-group">
+          <label for="exportDuration">Showcase loop duration</label>
+          <select id="exportDuration">
+            <option value="8">8 seconds</option>
+            <option value="10">10 seconds</option>
+            <option value="12" selected>12 seconds</option>
+            <option value="15">15 seconds</option>
+          </select>
+        </div>
+        <button id="exportVideo" class="primary wide" type="button">Export 8K Front + Back Showcase</button>
+      </div>
+
+      <details>
+        <summary>How the analysis-first 3D generation works</summary>
+        <p>Stage 1 inspects the alpha channel before touching the image, removes a background/model only when needed, separates the garments, aligns front/back landmarks and checks for duplicate views. If a required view is missing, generation stays blocked until it is resolved. Continue then fits garment-specific hoodie/pants meshes over the mannequin, creates dedicated left/right side textures from edge seams and fabric information, keeps central logos/artwork on their intended panels, adds controlled cloth folds, and builds the front/back showcase motion. The export renderer temporarily switches to a native 7680x4320 drawing buffer for the 8K output, then restores the interactive viewer.</p>
+      </details>
+    </aside>
+  </main>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
+
